@@ -1,0 +1,120 @@
+import tkinter as tk
+from tkinter import messagebox
+import pandas as pd
+from tkinter import ttk
+from tkinter import filedialog
+
+# Load product data from Excel
+df = pd.read_excel("products.xlsx")
+
+# Create main window
+root = tk.Tk()
+root.title("Billing Software")
+root.geometry("1200x2000")
+root.config(padx=100, pady=100)
+
+# Define variables
+product_var = tk.StringVar()
+price_var = tk.StringVar()
+quantity_var = tk.IntVar(value=1)
+discount_var = tk.DoubleVar(value=0)
+paid_amount_var = tk.DoubleVar()
+total_var = tk.StringVar()
+balance_var = tk.StringVar()
+bill_text = tk.StringVar()
+
+# Function to auto-fill price based on product name
+def update_price(*args):
+    product = product_var.get().strip().lower()
+    match = df[df['Product'].str.lower() == product]
+    if not match.empty:
+        price_var.set(str(match.iloc[0]['Price']))
+    else:
+        price_var.set("")
+
+# Function to calculate totals
+def calculate_total():
+    try:
+        price = float(price_var.get())
+        qty = quantity_var.get()
+        discount = discount_var.get()
+        paid = paid_amount_var.get()
+
+        subtotal = price * qty
+        discounted_total = subtotal - (subtotal * discount / 100)
+        balance = paid - discounted_total
+
+        total_var.set(f"{discounted_total:.2f}")
+        balance_var.set(f"{balance:.2f}")
+
+        bill = (
+            f"-------- BILL RECEIPT --------\n"
+            f"Product     : {product_var.get()}\n"
+            f"Quantity    : {qty}\n"
+            f"Price/unit  : ₹{price:.2f}\n"
+            f"Discount    : {discount:.2f}%\n"
+            f"Paid Amount : ₹{paid:.2f}\n"
+            f"------------------------------\n"
+            f"Total       : ₹{discounted_total:.2f}\n"
+            f"Balance     : ₹{balance:.2f}\n"
+            f"------------------------------"
+        )
+        bill_text.set(bill)
+    except Exception as e:
+        messagebox.showerror("Error", str(e))
+
+# Function to print (save as .txt file)
+def print_bill():
+    file = filedialog.asksaveasfilename(defaultextension=".txt", filetypes=[("Text Files", "*.txt")])
+    if file:
+        with open(file, "w") as f:
+            f.write(bill_text.get())
+        messagebox.showinfo("Saved", "Bill saved successfully!")
+
+# UI Layout
+tk.Label(root, text="Product Name").pack()
+product_entry = ttk.Entry(root, textvariable=product_var)
+product_entry.pack()
+product_var.trace_add("write", update_price)
+product_list = df['Product'].tolist()
+
+product_dropdown = ttk.Combobox(root, textvariable=product_var)
+product_dropdown['values'] = product_list
+product_dropdown.set("Type or Select Product")
+product_dropdown.pack()
+
+def on_keyrelease(event):
+    value = product_dropdown.get().lower()
+    filtered = [item for item in product_list if value in item.lower()]
+    product_dropdown['values'] = filtered
+
+product_dropdown.bind("<KeyRelease>", on_keyrelease)
+product_dropdown.bind("<<ComboboxSelected>>", update_price)
+
+
+tk.Label(root, text="Price (₹)").pack()
+tk.Entry(root, textvariable=price_var, state="readonly").pack()
+
+tk.Label(root, text="Quantity").pack()
+tk.Entry(root, textvariable=quantity_var).pack()
+
+tk.Label(root, text="Discount (%)").pack()
+tk.Entry(root, textvariable=discount_var).pack()
+
+tk.Label(root, text="Paid Amount (₹)").pack()
+tk.Entry(root, textvariable=paid_amount_var).pack()
+
+tk.Button(root, text="Calculate Total", command=calculate_total, bg="green", fg="white").pack(pady=10)
+
+tk.Label(root, text="Total Amount (₹)").pack()
+tk.Entry(root, textvariable=total_var, state="readonly").pack()
+
+tk.Label(root, text="Balance (₹)").pack()
+tk.Entry(root, textvariable=balance_var, state="readonly").pack()
+
+tk.Label(root, text="-------- Bill Summary --------").pack(pady=10)
+tk.Message(root, textvariable=bill_text, width=500, bg="#f0f0f0").pack()
+
+tk.Button(root, text="Print (Save as .txt)", command=print_bill, bg="blue", fg="white").pack(pady=20)
+
+root.mainloop()
